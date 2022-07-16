@@ -5,7 +5,8 @@
   "main": "build/server/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc && npm run build:web",
+    "postinstall": "cd web && npm ci",
+    "build": "tsc && cd npm run build:web",
     "start": "NODE_ENV=production node ./build/server/index",
     "dev": "nodemon --watch server server/index.ts",
     "dev:web": "cd web && npm start",

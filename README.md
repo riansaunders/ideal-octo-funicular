@@ -2,7 +2,6 @@
 
 Deployment:
 
-- Install the required react packages: `cd web && npm i`
 - Install the required main packages: `npm i`.
 - Then build wth project with: `npm run build`.
 - Then start it with: `npm start`.

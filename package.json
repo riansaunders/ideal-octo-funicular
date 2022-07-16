@@ -1,17 +1,15 @@
 {
   "name": "onthesamepage",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "build/server/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc && npm run build:web",
     "start": "NODE_ENV=production node ./build/server/index",
-    "dev": " nodemon --watch server server/index.ts",
-    "dev:web": "cd react && npm start",
-    "copy:web": "cp -rf src/web/ build/web/",
-    "build:web": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./build/web/index.css",
-    "build:web-watch": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./build/web/index.css --watch"
+    "dev": "nodemon --watch server server/index.ts",
+    "dev:web": "cd web && npm start",
+    "build:web": "cd web && npm run build"
   },
   "dependencies": {
     "@faker-js/faker": "^7.3.0",

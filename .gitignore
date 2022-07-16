@@ -105,9 +105,10 @@ release/
 .DS_Store
 
 
+dist/
+
 dist/electron.js
 dist/react.js
 chrome/
 
 build/
- 

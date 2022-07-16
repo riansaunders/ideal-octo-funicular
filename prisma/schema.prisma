@@ -21,9 +21,15 @@ model Comment {
   content String
   upvotes Upvote[]
 
-  createdAt DateTime @default(now())
-}
+  createdAt DateTime @default(now())  
 
+  parentId String?    @unique
+  parent   Comment?   @relation("ParentComment", fields: [parentId], references: [id])
+
+  
+  child Comment?   @relation("ParentComment")
+} 
+ 
 
 model Upvote {
   id String @id @default(uuid())

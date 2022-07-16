@@ -1,11 +1,12 @@
 import { faker } from "@faker-js/faker";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Comment } from "@prisma/client";
 import "dotenv/config";
 import express, { Express, Request } from "express";
 import * as yup from "yup";
 
 import { cert, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+
 import cors from "cors";
 
 initializeApp({
@@ -23,12 +24,24 @@ const prisma = new PrismaClient();
 
 const commentSchema = yup.object({
   text: yup.string().required(),
+  parent: yup.string().notRequired(),
 });
 
-const upvoteSchema = yup.object({
+const voteSchema = yup.object({
   commentId: yup.string().required(),
-  userId: yup.string().required(),
 });
+
+const transformComment = (userId: string, comment: any): CompleteComment => {
+  return {
+    ...comment,
+    child: comment.child ? transformComment(userId, comment.child) : undefined,
+    upvoteCount: comment.upvotes?.length || 0,
+    upvoted:
+      comment.upvotes?.findIndex((upvote: any) => upvote.userId === userId) !==
+      -1,
+    upvotes: undefined,
+  };
+};
 
 app.use(cors());
 
@@ -52,12 +65,32 @@ app.use(async (req, res, next) => {
     return res.status(403).end();
   }
 });
+type CommentWithChild = Comment & {
+  child: Comment | null;
+};
+type CompleteComment = CommentWithChild & {
+  upvotes: {
+    userId: string;
+    id: string;
+  }[];
+};
 
 app.get("/comments", async (_req, res) => {
   const req = _req as ExtendedRequest;
 
   const comments = await prisma.comment.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+    where: {
+      parent: null,
+    },
     include: {
+      child: {
+        include: {
+          upvotes: {},
+        },
+      },
       upvotes: {
         select: {
           id: true,
@@ -66,15 +99,10 @@ app.get("/comments", async (_req, res) => {
       },
     },
   });
-  const output = comments.map((comment) => {
-    return {
-      ...comment,
-      upvoteCount: comment.upvotes.length,
-      upvoted:
-        comment.upvotes.findIndex((upvote) => upvote.userId === req.userId) !==
-        -1,
-    };
-  });
+
+  const output = comments.map((comment) =>
+    transformComment(req.userId, comment)
+  );
 
   return res.json({
     comments: output,
@@ -85,7 +113,7 @@ app.post("/upvote", async (_req, res) => {
   try {
     const req = _req as ExtendedRequest;
 
-    const { commentId } = upvoteSchema.validateSync(req.body);
+    const { commentId } = voteSchema.validateSync(req.body);
 
     // There is a condition in the database that prevents us for upvoting the same comment twice.
     await prisma.upvote.create({
@@ -106,7 +134,7 @@ app.post("/downvote", async (_req, res) => {
   try {
     const req = _req as ExtendedRequest;
 
-    const { commentId } = upvoteSchema.validateSync(req.body);
+    const { commentId } = voteSchema.validateSync(req.body);
 
     await prisma.upvote.delete({
       where: {
@@ -127,7 +155,7 @@ app.post("/comment", async (_req, res) => {
   try {
     const req = _req as ExtendedRequest;
 
-    const { text } = commentSchema.validateSync(req.body);
+    const { text, parent } = commentSchema.validateSync(req.body);
 
     const comment = await prisma.comment.create({
       data: {
@@ -135,10 +163,19 @@ app.post("/comment", async (_req, res) => {
         authorAvatarURL: faker.image.avatar(),
         authorName: faker.name.findName(),
         content: text,
+        ...(parent
+          ? {
+              parent: {
+                connect: {
+                  id: parent,
+                },
+              },
+            }
+          : {}),
       },
     });
     return res.status(200).json({
-      comment: comment,
+      comment: transformComment(req.userId, comment),
     });
   } catch (err) {
     console.error(err);

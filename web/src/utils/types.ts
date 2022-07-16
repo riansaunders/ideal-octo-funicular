@@ -1,6 +1,8 @@
 import { Comment } from "@prisma/client";
 
 export type CommentModel = Comment & {
-  upvotes: number;
+  upvoteCount: number;
   upvoted: boolean;
+
+  child: CommentModel;
 };

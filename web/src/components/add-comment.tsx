@@ -1,20 +1,33 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 
-import { mutate } from "swr";
+import useSWR, { mutate } from "swr";
+import { DiscussionContext } from "../App";
 import { client } from "../utils/http";
+import { CommentModel } from "../utils/types";
 
 export function AddComment() {
   const [content, setContent] = useState("");
+
+  const { replyingTo, setReplyingTo } = useContext(DiscussionContext);
+
+  const { data: comments } = useSWR<CommentModel[]>("/comments", (url) =>
+    client.get(url).then((r) => r.data.comments)
+  );
 
   const submitForm = () => {
     client
       .post("/comment", {
         text: content,
+        parent: replyingTo?.id,
       })
       .then((d) => {
-        setContent("");
-        mutate("/comments");
+        const inbound = d.data.comment;
+
+        const newComents = [inbound, ...(comments || [])];
+        mutate("/comments", undefined, { revalidate: true });
       });
+    setReplyingTo(undefined);
+    setContent("");
   };
 
   return (
@@ -42,8 +55,15 @@ export function AddComment() {
           type="submit"
           className="text-white font-semibold text-sm bg-[#7E34F6] py-2 px-4 rounded-md"
         >
-          Comment
+          {replyingTo ? "Reply" : "Comment"}
         </button>
+        {replyingTo ? (
+          <button className="text-sm" onClick={() => setReplyingTo(undefined)}>
+            Cancel
+          </button>
+        ) : (
+          <></>
+        )}
       </div>
     </form>
   );

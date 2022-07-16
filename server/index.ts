@@ -8,19 +8,25 @@ import { cert, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 
 import cors from "cors";
+import io, { Socket } from "socket.io";
+
+import http from "http";
 
 initializeApp({
   credential: cert(JSON.parse(String(process.env.FIREBASE_CREDENTIALS) || "")),
 });
 
-const app: Express = express();
+const expressApp: Express = express();
+const httpServer = http.createServer(expressApp);
+const ioServer = new io.Server(httpServer, {
+  cors: {
+    origin: "*",
+  },
+});
 const port = process.env.PORT ?? 8080;
-
-type ExtendedRequest = Request & {
-  userId: string;
-};
-
 const prisma = new PrismaClient();
+
+const sockets: Socket[] = [];
 
 const commentSchema = yup.object({
   text: yup.string().required(),
@@ -31,7 +37,23 @@ const voteSchema = yup.object({
   commentId: yup.string().required(),
 });
 
-const transformComment = (userId: string, comment: any): CompleteComment => {
+type ExtendedRequest = Request & {
+  userId: string;
+};
+type CompleteComment = Comment & {
+  upvotes: {
+    userId: string;
+    id: string;
+  }[];
+};
+
+// This won't have authentication because of the nature of this codebase.
+
+ioServer.on("connection", (socket) => {
+  sockets.push(socket);
+});
+
+function transformComment(userId: string, comment: any): CompleteComment {
   return {
     ...comment,
     child: comment.child ? transformComment(userId, comment.child) : undefined,
@@ -41,13 +63,17 @@ const transformComment = (userId: string, comment: any): CompleteComment => {
       -1,
     upvotes: undefined,
   };
-};
+}
 
-app.use(cors());
+function emitUpvoteChange(commentId: string, positive: boolean) {
+  sockets.forEach((s) => s.emit(`upvote-${commentId}`, { positive: positive }));
+}
 
-app.use(express.json());
+expressApp.use(cors());
+expressApp.use(express.json());
+expressApp.use(express.static("build/web"));
 
-app.use(async (req, res, next) => {
+expressApp.use(async (req, res, next) => {
   const [type, token] = req.headers.authorization?.split(" ") || [];
 
   // console.log(type, token);
@@ -65,17 +91,8 @@ app.use(async (req, res, next) => {
     return res.status(403).end();
   }
 });
-type CommentWithChild = Comment & {
-  child: Comment | null;
-};
-type CompleteComment = CommentWithChild & {
-  upvotes: {
-    userId: string;
-    id: string;
-  }[];
-};
 
-app.get("/comments", async (_req, res) => {
+expressApp.get("/comments", async (_req, res) => {
   const req = _req as ExtendedRequest;
 
   const comments = await prisma.comment.findMany({
@@ -109,7 +126,7 @@ app.get("/comments", async (_req, res) => {
   });
 });
 
-app.post("/upvote", async (_req, res) => {
+expressApp.post("/upvote", async (_req, res) => {
   try {
     const req = _req as ExtendedRequest;
 
@@ -123,6 +140,8 @@ app.post("/upvote", async (_req, res) => {
       },
     });
 
+    emitUpvoteChange(commentId, true);
+
     return res.status(204).end();
   } catch (err) {
     console.error(err);
@@ -130,7 +149,7 @@ app.post("/upvote", async (_req, res) => {
   }
 });
 
-app.post("/downvote", async (_req, res) => {
+expressApp.post("/downvote", async (_req, res) => {
   try {
     const req = _req as ExtendedRequest;
 
@@ -144,6 +163,9 @@ app.post("/downvote", async (_req, res) => {
         },
       },
     });
+
+    emitUpvoteChange(commentId, false);
+
     return res.status(204).end();
   } catch (err) {
     console.error(err);
@@ -151,7 +173,7 @@ app.post("/downvote", async (_req, res) => {
   }
 });
 
-app.post("/comment", async (_req, res) => {
+expressApp.post("/comment", async (_req, res) => {
   try {
     const req = _req as ExtendedRequest;
 
@@ -183,8 +205,6 @@ app.post("/comment", async (_req, res) => {
   }
 });
 
-app.use(express.static("build/web"));
-
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log(`⚡️[server]: Server is running at https://localhost:${port}`);
 });

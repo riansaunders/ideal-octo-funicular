@@ -1,18 +1,13 @@
 import { useContext, useState } from "react";
 
-import useSWR, { mutate } from "swr";
+import { mutate } from "swr";
 import { DiscussionContext } from "../App";
 import { client } from "../utils/http";
-import { CommentModel } from "../utils/types";
 
 export function AddComment() {
   const [content, setContent] = useState("");
 
   const { replyingTo, setReplyingTo } = useContext(DiscussionContext);
-
-  const { data: comments } = useSWR<CommentModel[]>("/comments", (url) =>
-    client.get(url).then((r) => r.data.comments)
-  );
 
   const submitForm = () => {
     client
@@ -20,10 +15,7 @@ export function AddComment() {
         text: content,
         parent: replyingTo?.id,
       })
-      .then((d) => {
-        const inbound = d.data.comment;
-
-        const newComents = [inbound, ...(comments || [])];
+      .then(() => {
         mutate("/comments", undefined, { revalidate: true });
       });
     setReplyingTo(undefined);
@@ -39,6 +31,7 @@ export function AddComment() {
     >
       <div className="flex space-x-3 items-center">
         <img
+          alt="avatar"
           id="avatarImage"
           src="https://loremflickr.com/48/48"
           className="h-12 w-12 rounded-full"

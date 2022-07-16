@@ -1,8 +1,8 @@
 import { CommentModel } from "../utils/types";
 
 import humanize from "humanize-duration";
-import { useContext, useState } from "react";
-import { client } from "../utils/http";
+import { useContext, useEffect, useState } from "react";
+import { client, ioClient } from "../utils/http";
 import { DiscussionContext } from "../App";
 export type CommentViewProps = {
   comment: CommentModel;
@@ -32,19 +32,41 @@ export function CommentView({ comment: inbound }: CommentViewProps) {
         setComment((comment) => {
           return {
             ...comment,
-            upvoteCount: comment.upvoted
-              ? comment.upvoteCount - 1
-              : comment.upvoteCount + 1,
+            // upvoteCount: comment.upvoted
+            //   ? comment.upvoteCount - 1
+            //   : comment.upvoteCount + 1,
             upvoted: !comment.upvoted,
           };
         });
       });
   };
 
+  useEffect(() => {
+    const listener = (ev: any) => {
+      console.log(":-)", ev);
+      setComment((comment) => {
+        return {
+          ...comment,
+          upvoteCount: ev.positive
+            ? comment.upvoteCount + 1
+            : comment.upvoteCount - 1,
+        };
+      });
+    };
+    const event = `upvote-${comment.id}`;
+
+    ioClient.on(`upvote-${comment.id}`, listener);
+
+    return () => {
+      ioClient.removeListener(event, listener);
+    };
+  }, [comment.id]);
+
   return (
     <div className="min-h-20 flex">
       <div className={"flex flex-col"}>
         <img
+          alt="author-avatar"
           src={comment.authorAvatarURL}
           className="rounded-full h-12 w-12 mr-3"
         />

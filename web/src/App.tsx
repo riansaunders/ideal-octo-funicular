@@ -1,4 +1,49 @@
+import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously } from "firebase/auth";
+import { useEffect } from "react";
+import axios from "axios";
+import useSWR from "swr";
+
+const isDev = process.env.NODE_ENV !== "production";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDTAmhqXd5GUWESIAi4pWAn5wiTEBenL94",
+  authDomain: "ideal-octo-funicular.firebaseapp.com",
+  projectId: "ideal-octo-funicular",
+  storageBucket: "ideal-octo-funicular.appspot.com",
+  messagingSenderId: "392618549283",
+  appId: "1:392618549283:web:291b7622a1245316301196",
+};
+initializeApp(firebaseConfig);
+
+const client = axios.create({
+  baseURL: isDev ? "http://localhost:8080" : "/",
+});
+
+client.interceptors.request.use(async (config) => {
+  const auth = getAuth();
+
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
+  }
+  const idToken = await auth.currentUser!.getIdToken();
+
+  config.headers ??= {};
+  config.headers["authorization"] = `Bearer ${idToken}`;
+
+  return config;
+});
+
 function App() {
+  const { data: comments } = useSWR(
+    "/comments",
+    (url) => client.get(url).then((r) => r.data),
+    {
+      refreshInterval: 0,
+      shouldRetryOnError: false,
+    }
+  );
+
   return (
     <div className="h-screen">
       <div

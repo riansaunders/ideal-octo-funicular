@@ -6,13 +6,10 @@ import * as yup from "yup";
 
 import { cert, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import cors from "cors";
 
 initializeApp({
-  credential: cert({
-    projectId: String(process.env.FIREBASE_PROJECT_ID),
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  }),
+  credential: cert(JSON.parse(String(process.env.FIREBASE_CREDENTIALS) || "")),
 });
 
 const app: Express = express();
@@ -34,34 +31,45 @@ const upvoteSchema = yup.object({
   userId: yup.string().required(),
 });
 
+app.use(cors());
+
 app.use(express.json());
 
 app.use(async (req, res, next) => {
   const [type, token] = req.headers.authorization?.split(" ") || [];
+
+  // console.log(type, token);
   if (!type || !token || type !== "Bearer") {
     return res.status(403).end();
   }
+  try {
+    const claim = await getAuth().verifyIdToken(token);
+    /** @ts-ignore */
+    req.userId = claim.uid;
 
-  const claim = await getAuth()
-    .verifyIdToken(token)
-    .catch(() => undefined);
-
-  if (!claim) {
+    next();
+  } catch (err) {
+    console.error(err);
     return res.status(403).end();
   }
-
-  /** @ts-ignore */
-  req.userId = claim.uid;
-
-  next();
 });
 
-app.get("/comments", async (req, res) => {
+app.get("/comments", async (_req, res) => {
+  const req = _req as ExtendedRequest;
+
+  // if (1 === 1) {
+  //   console.log(req.userId);
+  //   return res.json({
+  //     comments: [],
+  //   });
+  // }
+
   const comments = await prisma.comment.findMany({
     include: {
       upvotes: {
         select: {
           id: true,
+          userId: true,
         },
       },
     },
@@ -70,6 +78,9 @@ app.get("/comments", async (req, res) => {
     return {
       ...comment,
       upvoteCount: comment.upvotes.length,
+      upvoted: comment.upvotes.findIndex(
+        (upvote) => upvote.userId === req.userId
+      ),
     };
   });
 

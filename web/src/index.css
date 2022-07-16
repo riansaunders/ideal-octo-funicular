@@ -1,0 +1,6 @@
+@import url("~@fontsource/inter/index.css");
+@import url("~@fontsource/inter/variable.css");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

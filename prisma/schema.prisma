@@ -1,0 +1,42 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Comment {
+  id String @id @default(uuid())
+
+  authorName String
+  authorAvatarURL String
+
+  userId String
+
+  content String
+  upvotes Upvote[]
+
+  createdAt DateTime @default(now())  
+
+  parentId String?    @unique
+  parent   Comment?   @relation("ParentComment", fields: [parentId], references: [id])
+
+  
+  child Comment?   @relation("ParentComment")
+} 
+ 
+
+model Upvote {
+  id String @id @default(uuid())
+
+  userId String 
+  comment Comment @relation(fields: [commentId], references: [id])
+  commentId String 
+
+  @@unique([userId, commentId])
+}

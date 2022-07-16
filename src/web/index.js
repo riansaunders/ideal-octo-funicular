@@ -1,15 +1,17 @@
 /** @type {import("./scripts/jquery-3.6.0.min.js")} */
 import mustache from "./scripts/mustache.js";
 
-const upvoteButton = `<svg class="inline mr-1" width="11" height="10" viewBox="0 0 8 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+const upvoteCountTemplate = `<span data-count-commentid={{id}}>{{upvotes}}</span>`;
+
+const upvoteButtonTemplate = `<svg class="inline mr-1" width="11" height="10" viewBox="0 0 8 7" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M0.431818 7L4.14205 0.818182L7.84943 7H0.431818Z" fill="#4B587C"/>
 </svg>
-<span>Upvote</span>`;
+<span>Upvote (${upvoteCountTemplate})</span>`;
 
-const downvoteButton = ` <svg class="inline mr-1 rotate-180" width="11" height="10" viewBox="0 0 8 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+const downvoteButtonTemplate = ` <svg class="inline mr-1 rotate-180" width="11" height="10" viewBox="0 0 8 7" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M0.431818 7L4.14205 0.818182L7.84943 7H0.431818Z" fill="#4B587C"/>
 </svg>
-<span>Downvote</span>`;
+<span>Downvote (${upvoteCountTemplate})</span>`;
 
 const commentTemplate = `
   <div class="h-20 flex">
@@ -26,15 +28,15 @@ const commentTemplate = `
           <button data-commentid="{{id}}" data-upvoted="{{upvoted}}" class="vote-btn" onclick='toggleUpvote("{{id}}")'}> 
 
           {{#upvoted?}}
-            ${upvoteButton}
+            ${upvoteButtonTemplate}
           {{/upvoted?}}
 
           {{#upvoted}}
-            ${downvoteButton}
+            ${downvoteButtonTemplate}
           {{/upvoted}}
 
             {{^upvoted}}
-              ${upvoteButton} 
+              ${upvoteButtonTemplate} 
             {{/upvoted}} 
 
           </button>
@@ -89,7 +91,14 @@ $(function () {
           }
           btn.attr("data-upvoted", false);
 
-          btn.html(upvoteButton);
+          btn.html(
+            $(
+              mustache.render(upvoteButtonTemplate, {
+                upvotes: upvotes.filter((u) => u.commentId === commentId)
+                  .length,
+              })
+            )
+          );
         },
       });
     } else {
@@ -108,7 +117,14 @@ $(function () {
         success: (data) => {
           upvotes.push(data.upvote);
           btn.attr("data-upvoted", true);
-          btn.html($(downvoteButton));
+          btn.html(
+            $(
+              mustache.render(downvoteButtonTemplate, {
+                upvotes: upvotes.filter((u) => u.commentId === commentId)
+                  .length,
+              })
+            )
+          );
         },
       });
     }

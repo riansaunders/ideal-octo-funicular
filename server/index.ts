@@ -14,7 +14,6 @@ initializeApp({
 
 const app: Express = express();
 const port = process.env.PORT ?? 8080;
-const isDev = process.env.NODE_ENV !== "production";
 
 type ExtendedRequest = Request & {
   userId: string;
@@ -57,13 +56,6 @@ app.use(async (req, res, next) => {
 app.get("/comments", async (_req, res) => {
   const req = _req as ExtendedRequest;
 
-  // if (1 === 1) {
-  //   console.log(req.userId);
-  //   return res.json({
-  //     comments: [],
-  //   });
-  // }
-
   const comments = await prisma.comment.findMany({
     include: {
       upvotes: {
@@ -78,9 +70,9 @@ app.get("/comments", async (_req, res) => {
     return {
       ...comment,
       upvoteCount: comment.upvotes.length,
-      upvoted: comment.upvotes.findIndex(
-        (upvote) => upvote.userId === req.userId
-      ),
+      upvoted:
+        comment.upvotes.findIndex((upvote) => upvote.userId === req.userId) !==
+        -1,
     };
   });
 

@@ -20,6 +20,8 @@ model Comment {
 
   content String
   upvotes Upvote[]
+
+  createdAt DateTime @default(now())
 }
 
 

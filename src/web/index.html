@@ -9,6 +9,7 @@
     <title>On The Same Page</title>
 
     <script src="scripts/jquery-3.6.0.min.js"></script>
+    <script src="scripts/humanize-duration.js"></script>
     <script type="module" src="index.js"></script>
 </head>
 
@@ -20,21 +21,20 @@
             <div class="mb-8">
                 <h1 class="text-xl font-extrabold">Discussion</h1>
             </div>
-            <form id="comment-form">
-                <!-- <input name="foo" type="text"> /> -->
+            <form id="comment-form" method="POST">
                 <div class="flex space-x-3 items-center">
-                    <div class="h-8 w-8 rounded-full bg-green-500 inline-block"></div>
+                    <img id="avatarImage" src="https://loremflickr.com/48/48" class="h-12 w-12 rounded-full" />
                     <input name="comment" required minlength="1"
                         class="h-full border border-lightGray flex-1 px-3 py-2 rounded-md placeholder:text-mediumGray"
                         type="text" placeholder="What are your thoughts?" />
                     <button type="submit"
-                        class="text-white font-semibold text-sm bg-purple-500 py-2 px-3 rounded-md">Comment</button>
+                        class="text-white font-semibold text-sm bg-[#7E34F6] py-2 px-4 rounded-md">Comment</button>
                 </div>
             </form>
 
             <div class="border w-full border-lightGray my-32"></div>
 
-            <div id="comments-container" class="space-y-10">
+            <div id="comments-container" class="space-y-6">
             </div>
 
         </div>

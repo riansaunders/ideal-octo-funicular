@@ -5,12 +5,12 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npm run build:web && tsc",
+    "build": "tsc && npm run build:web",
     "start": "NODE_ENV=production node ./dist/server/index",
     "dev": "nodemon --watch src src/server/index.ts",
-    "copy:web": "cp -rf src/web/ dist/web/",
-    "build:web": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./dist/web/index.css",
-    "build:web-watch": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./dist/web/index.css --watch"
+    "copy:web": "cp -rf src/web/ build/web/",
+    "build:web": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./build/web/index.css",
+    "build:web-watch": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./build/web/index.css --watch"
   },
   "dependencies": {
     "express": "^4.18.1",

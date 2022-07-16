@@ -6,6 +6,29 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
+}
+
+model Comment {
+  id String @id @default(uuid())
+
+  authorName String
+  authorAvatarURL String
+
+  userId String
+
+  content String
+  upvotes Upvote[]
+}
+
+
+model Upvote {
+  id String @id @default(uuid())
+
+  userId String 
+  comment Comment @relation(fields: [commentId], references: [id])
+  commentId String 
+
+  @@unique([userId, commentId])
 }

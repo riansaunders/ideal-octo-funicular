@@ -1,13 +1,29 @@
-import "dotenv/config";
-import express, { Express, Request, Response } from "express";
-import { exec } from "child_process";
-import * as yup from "yup";
-import { v4 as uuidv4 } from "uuid";
 import { faker } from "@faker-js/faker";
+import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import express, { Express, Request } from "express";
+import * as yup from "yup";
+
+import { cert, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+
+initializeApp({
+  credential: cert({
+    projectId: String(process.env.FIREBASE_PROJECT_ID),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+  }),
+});
 
 const app: Express = express();
 const port = process.env.PORT ?? 8080;
 const isDev = process.env.NODE_ENV !== "production";
+
+type ExtendedRequest = Request & {
+  userId: string;
+};
+
+const prisma = new PrismaClient();
 
 const commentSchema = yup.object({
   text: yup.string().required(),
@@ -18,95 +34,64 @@ const upvoteSchema = yup.object({
   userId: yup.string().required(),
 });
 
-type Comment = {
-  id: string;
-  author: {
-    name: string;
-    avatarURL: string;
-  };
-  text: string;
-  dateAdded: Date;
-};
-type CommentUpvote = {
-  id: string;
-  commentId: string;
-  userId: string;
-};
-
-const comments: Comment[] = [
-  {
-    id: "first",
-    author: {
-      name: "Rian Saunders",
-      avatarURL: "https://avatars.githubusercontent.com/u/56507515?v=4",
-    },
-    text: "This is my forever comment, in V1",
-    dateAdded: new Date(),
-  },
-];
-
-const upvotes: CommentUpvote[] = [
-  {
-    id: "first_upvote",
-    userId: "rian",
-    commentId: "first",
-  },
-];
-
-// Since the front-end is plain-jane js, we want to build the web
-// We will be using nodemon's reloading to achieve this.
-if (isDev) {
-  exec("npm run build:web");
-}
-
 app.use(express.json());
 
-app.get("/comments", (req, res) => {
+app.use(async (req, res, next) => {
+  const [type, token] = req.headers.authorization?.split(" ") || [];
+  if (!type || !token || type !== "Bearer") {
+    return res.status(403).end();
+  }
+
+  const claim = await getAuth()
+    .verifyIdToken(token)
+    .catch(() => undefined);
+
+  if (!claim) {
+    return res.status(403).end();
+  }
+
+  /** @ts-ignore */
+  req.userId = claim.uid;
+
+  next();
+});
+
+app.get("/comments", async (req, res) => {
+  const comments = await prisma.comment.findMany({
+    include: {
+      upvotes: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
+  const output = comments.map((comment) => {
+    return {
+      ...comment,
+      upvoteCount: comment.upvotes.length,
+    };
+  });
+
   return res.json({
-    comments: comments,
-    upvotes: upvotes,
+    comments: output,
   });
 });
 
-app.post("/upvote", (req, res) => {
+app.post("/upvote", async (_req, res) => {
   try {
-    const { commentId, userId } = upvoteSchema.validateSync(req.body);
+    const req = _req as ExtendedRequest;
 
-    const existing = upvotes.find(
-      (c) => c.commentId === commentId && c.userId === userId
-    );
-    if (existing) {
-      return res.status(400).end();
-    }
+    const { commentId } = upvoteSchema.validateSync(req.body);
 
-    const newUpvote: CommentUpvote = {
-      id: uuidv4(),
-      commentId: commentId,
-      userId: userId,
-    };
-
-    upvotes.push(newUpvote);
-
-    console.log(upvotes);
-    return res.status(200).json({
-      upvote: newUpvote,
+    // There is a condition in the database that prevents us for upvoting the same comment twice.
+    await prisma.upvote.create({
+      data: {
+        commentId: commentId,
+        userId: req.userId,
+      },
     });
-  } catch (err) {
-    console.error(err);
-    return res.status(400).end();
-  }
-});
 
-app.post("/downvote", (req, res) => {
-  try {
-    const { commentId, userId } = upvoteSchema.validateSync(req.body);
-
-    const existing = upvotes.findIndex(
-      (c) => c.commentId === commentId && c.userId === userId
-    );
-    if (existing != -1) {
-      upvotes.splice(existing, 1);
-    }
     return res.status(204).end();
   } catch (err) {
     console.error(err);
@@ -114,22 +99,43 @@ app.post("/downvote", (req, res) => {
   }
 });
 
-app.post("/comment", (req, res) => {
+app.post("/downvote", async (_req, res) => {
   try {
+    const req = _req as ExtendedRequest;
+
+    const { commentId } = upvoteSchema.validateSync(req.body);
+
+    await prisma.upvote.delete({
+      where: {
+        userId_commentId: {
+          userId: req.userId,
+          commentId: commentId,
+        },
+      },
+    });
+    return res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    return res.status(400).end();
+  }
+});
+
+app.post("/comment", async (_req, res) => {
+  try {
+    const req = _req as ExtendedRequest;
+
     const { text } = commentSchema.validateSync(req.body);
 
-    const newComment: Comment = {
-      id: uuidv4(),
-      author: {
-        name: faker.name.findName(),
-        avatarURL: faker.image.avatar(),
+    const comment = await prisma.comment.create({
+      data: {
+        userId: req.userId,
+        authorAvatarURL: faker.image.avatar(),
+        authorName: faker.name.findName(),
+        content: text,
       },
-      text: text,
-      dateAdded: new Date(),
-    };
-    comments.push(newComment);
+    });
     return res.status(200).json({
-      comment: newComment,
+      comment: comment,
     });
   } catch (err) {
     console.error(err);

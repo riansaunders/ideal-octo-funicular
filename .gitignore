@@ -112,3 +112,4 @@ dist/react.js
 chrome/
 
 build/
+firebase.json

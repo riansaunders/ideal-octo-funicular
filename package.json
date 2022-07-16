@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc && npm run build:web",
-    "start": "NODE_ENV=production node ./dist/server/index",
+    "start": "NODE_ENV=production node ./build/server/index",
     "dev": "nodemon --watch src src/server/index.ts",
     "copy:web": "cp -rf src/web/ build/web/",
     "build:web": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./build/web/index.css",

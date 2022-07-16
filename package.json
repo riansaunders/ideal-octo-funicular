@@ -7,15 +7,18 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc && npm run build:web",
     "start": "NODE_ENV=production node ./build/server/index",
-    "dev": "nodemon --watch src src/server/index.ts",
+    "dev": " nodemon --watch src src/server/index.ts",
+    "dev:web": "cd react && npm start",
     "copy:web": "cp -rf src/web/ build/web/",
     "build:web": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./build/web/index.css",
     "build:web-watch": "npm run copy:web && tailwindcss -i ./src/web/index.css -o ./build/web/index.css --watch"
   },
   "dependencies": {
     "@faker-js/faker": "^7.3.0",
+    "@fontsource/inter": "^4.5.11",
     "express": "^4.18.1",
     "prisma": "^4.0.0",
+    "swr": "^1.3.0",
     "typescript": "^4.7.4",
     "uuid": "^8.3.2",
     "yup": "^0.32.11"
